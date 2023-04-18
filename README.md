@@ -74,3 +74,9 @@ To customize the AI model used for proof-of-useful-work mining, modify and use t
 To customize the architecture of the dynamic transformer-based AI model, adjust the initial_layers and initial_attention_heads parameters in the DynamicTransformer constructor, and use the adjust_architecture method to add layers or attention heads based on task complexity.
 
 This P2P mining network implementation provides a basic framework for scalable, decentralized cryptocurrency mining using proof-of-useful-work calculations based on machine learning, and in case you are wondering; i absolutely have no life :p - cbrwx.
+
+# Please consider this 
+
+This Proof of Useful Work (POUW) system currently rewards miners solely based on the block they mine, but it could be improved by switching to a cooperative mode and rewarding miners based on the effort and GPU power they use. To achieve this, you would need to modify the code in miner.py to enable miners to cooperate by sharing their computational power to complete the training process faster. This can be done by adjusting the proof of work algorithm to allow for more efficient cooperation between miners. Furthermore, miners will be rewarded a percentage of the reward based on the amount of work they contribute to the process.
+
+In cooperative mode, the P2P network will play a vital role in coordinating the miners' efforts. The Masternode, implemented in the masternode.py file, will act as the coordinator by distributing tasks, collecting results, and updating the model. Additionally, miners would be expected to submit computed parameters back to the network after mining each block. The Masternode will distribute a portion of the reward to the miners based on their submitted parameters. Changing this system to a cooperative mode and percentage reward based upon power used is essential for encouraging miners to work together and contribute their resources efficiently.
