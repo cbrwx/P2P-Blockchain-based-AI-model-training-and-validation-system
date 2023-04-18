@@ -73,4 +73,4 @@ To customize the AI model used for proof-of-useful-work mining, modify and use t
 
 To customize the architecture of the dynamic transformer-based AI model, adjust the initial_layers and initial_attention_heads parameters in the DynamicTransformer constructor, and use the adjust_architecture method to add layers or attention heads based on task complexity.
 
-This P2P mining network implementation provides a basic framework for scalable, decentralized cryptocurrency mining using proof-of-useful-work calculations based on machine learning, cbrwx.
+This P2P mining network implementation provides a basic framework for scalable, decentralized cryptocurrency mining using proof-of-useful-work calculations based on machine learning, and in case ur wondering; i absolutely have no life :p - cbrwx.
