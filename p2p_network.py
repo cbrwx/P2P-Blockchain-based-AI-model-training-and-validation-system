@@ -1,72 +1,94 @@
-import threading
 import socket
+import threading
 import json
-import random
-from typing import Any, Callable, List
+import miner
+from transaction import Transaction
 
-class P2PNode:
-    def __init__(self, host: str = "0.0.0.0", port: int = 5000, peers: List[str] = None):
-        self.host = host
+class P2PNetwork:
+    def __init__(self, blockchain, ip_address, port):
+        self.blockchain = blockchain
+        self.ip_address = ip_address
         self.port = port
-        self.peers = peers if peers else []
-        self.connections = []
-        self.message_handlers = []
+        self.peers = []
+        self.server = None
+        self.start_server()
 
-        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    def start_server(self):
+        self.server = threading.Thread(target=self.run_server)
+        self.server.start()
 
-    def start(self) -> None:
-        self.server_socket.bind((self.host, self.port))
-        self.server_socket.listen(5)
+    def run_server(self):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind((self.ip_address, self.port))
+            s.listen()
+            while True:
+                conn, addr = s.accept()
+                with conn:
+                    print('Connected by', addr)
+                    data = conn.recv(1024)
+                    if not data:
+                        continue
+                    request = json.loads(data.decode())
+                    response = self.handle_request(request)
+                    conn.sendall(json.dumps(response).encode())
 
-        threading.Thread(target=self._listen_for_connections).start()
-        threading.Thread(target=self._connect_to_peers).start()
+    def handle_request(self, request):
+        action = request.get("action")
 
-    def _listen_for_connections(self) -> None:
-        while True:
-            conn, _ = self.server_socket.accept()
-            self.connections.append(conn)
-            threading.Thread(target=self._handle_connection, args=(conn,)).start()
+        if action == "get_blocks":
+            return self.blockchain.get_blocks()
 
-    def _connect_to_peers(self) -> None:
+        if action == "new_block":
+            block_data = request.get("block")
+            if self.blockchain.add_block_from_data(block_data):
+                return {"status": "success"}
+            else:
+                return {"status": "failure"}
+
+        if action == "get_peers":
+            return self.peers
+
+        if action == "new_peer":
+            peer = request.get("peer")
+            if peer not in self.peers:
+                self.peers.append(peer)
+            return {"status": "success"}
+
+        if action == "find_transaction":
+            tx_id = request.get("transaction_id")
+            transaction = miner.find_transaction_by_id(self.blockchain, tx_id)
+            if transaction:
+                return {"status": "success", "transaction": transaction.to_dict()}
+            else:
+                return {"status": "not_found"}
+
+        return {"status": "unknown_request"}
+
+    def send_to_peers(self, request):
         for peer in self.peers:
+            self.send_to_peer(peer, request)
+
+    def send_to_peer(self, peer, request):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             try:
-                host, port = peer.split(":")
-                conn = socket.create_connection((host, int(port)))
-                self.connections.append(conn)
-                threading.Thread(target=self._handle_connection, args=(conn,)).start()
-            except Exception as e:
-                print(f"Failed to connect to peer {peer}: {e}")
+                s.connect((peer["ip"], peer["port"]))
+                s.sendall(json.dumps(request).encode())
+                data = s.recv(1024)
+                return json.loads(data.decode())
+            except ConnectionRefusedError:
+                print(f"Connection refused by {peer}")
+                return {"status": "failure"}
 
-    def _handle_connection(self, conn: socket.socket) -> None:
-        while True:
-            try:
-                message = conn.recv(1024).decode("utf-8")
-                if not message:
-                    break
+    def broadcast_new_block(self, block):
+        self.send_to_peers({"action": "new_block", "block": block.to_dict()})
 
-                message = json.loads(message)
-                for handler in self.message_handlers:
-                    handler(message)
-            except Exception as e:
-                print(f"Failed to handle message: {e}")
-                break
+    def add_peer(self, ip_address, port):
+        self.peers.append({"ip": ip_address, "port": port})
+        self.send_to_peer({"ip": ip_address, "port": port}, {"action": "new_peer", "peer": {"ip": self.ip_address, "port": self.port}})
 
-        conn.close()
-        self.connections.remove(conn)
-
-    def add_message_handler(self, handler: Callable[[Any], None]) -> None:
-        self.message_handlers.append(handler)
-
-    def broadcast(self, message: Any) -> None:
-        message_str = json.dumps(message)
-        for conn in self.connections:
-            try:
-                conn.sendall(message_str.encode("utf-8"))
-            except Exception as e:
-                print(f"Failed to send message: {e}")
-
-if __name__ == "__main__":
-    p2p_node = P2PNode(port=random.randint(5000, 6000))
-    p2p_node.start()
-    print(f"Node started at {p2p_node.host}:{p2p_node.port}")
+    def find_transaction(self, transaction_id):
+        response = self.send_to_peers({"action": "find_transaction", "transaction_id": transaction_id})
+        if response["status"] == "success":
+            return Transaction.from_dict(response["transaction"])
+        else:
+            return None
