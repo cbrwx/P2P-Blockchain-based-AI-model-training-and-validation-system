@@ -20,10 +20,22 @@ class Miner:
             if self.blockchain.is_valid_block(new_block, self.blockchain.chain[-1]):
                 self.blockchain.add_block(new_block)
                 self.train_model(new_block.data)
+        elif message["type"] == "model_update":
+            self.update_model(message["model_parameters"])
+        elif message["type"] == "adjust_architecture":
+            self.adjust_architecture(message["task_complexity"])
+
+    def adjust_architecture(self, task_complexity: str) -> None:
+        self.ai_model.adjust_architecture(task_complexity)
+        self.ai_model.save()
 
     def train_model(self, training_data: str) -> None:
         # Train the AI model using the training data
         self.ai_model.train(training_data)
+
+    def update_model(self, model_parameters: Any) -> None:
+        # Update the local AI model with the new parameters received
+        self.ai_model.update(model_parameters)
 
     def mine(self):
         # Get the latest block from the blockchain
@@ -47,6 +59,9 @@ class Miner:
 
         # Broadcast the new block to the network
         self.p2p_node.broadcast({"type": "new_block", "block": new_block.serialize()})
+
+        # Share the updated model parameters with other miners
+        self.p2p_node.broadcast({"type": "model_update", "model_parameters": model_parameters})
 
     def run(self):
         while True:
