@@ -17,6 +17,10 @@ class Masternode:
             self.send_training_data()
         elif message['type'] == 'model_update':
             self.process_model_update(message['data'])
+        elif message['type'] == 'request_transaction':
+            self.send_transaction_data(message['transaction_id'])
+        elif message['type'] == 'adjust_architecture':
+            self.adjust_architecture(message['task_complexity'])
 
     def send_training_data(self):
         with open('training_data.txt', 'r') as file:
@@ -28,6 +32,19 @@ class Masternode:
     def process_model_update(self, model_update):
         self.ai_model.update(model_update)
         self.ai_model.save()
+
+    def send_transaction_data(self, transaction_id):
+        transaction_data = self.ai_model.find_transaction(transaction_id)
+
+        if transaction_data:
+            message = {'type': 'transaction_data', 'transaction_id': transaction_id, 'data': transaction_data}
+            self.p2p_network.broadcast(message)
+
+    def adjust_architecture(self, task_complexity: str) -> None:
+        self.ai_model.adjust_architecture(task_complexity)
+        self.ai_model.save()
+        message = {'type': 'adjust_architecture', 'task_complexity': task_complexity}
+        self.p2p_network.broadcast(message)
 
 def main():
     if len(sys.argv) != 2:
@@ -48,5 +65,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-    print("python masternode.py [node_port]")
